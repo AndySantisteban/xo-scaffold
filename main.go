@@ -4,18 +4,31 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+
+	"github.com/joho/godotenv"
 )
 
+func goDotEnvVariable(key string) string {
+
+	err := godotenv.Load(".env")
+
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
+	return os.Getenv(key)
+}
+
 func main() {
-	// Parámetros por consola
+	godotenv.Load()
 	var output string
-	var pkg string
 	var views string
 
 	flag.StringVar(&output, "out", "gen", "Directorio de salida")
-	flag.StringVar(&pkg, "pkg", "gen", "Nombre del paquete")
 	flag.StringVar(&views, "views", "", "Nombres de vistas separados por coma (ej: VwUsuarios,VwClientes)")
 
 	flag.Parse()
@@ -25,18 +38,27 @@ func main() {
 	}
 
 	viewList := strings.Split(views, ",")
-
+	schema := goDotEnvVariable("DATABASE_URL")
+	var path = filepath.Join(".", "gen")
 	args := []string{
-		"schema", "sqlserver://sysugosrv02:UGO%21dev%210823@develop86.devfci.com/CenturionNotes",
-		"--fk-mode", "parent",
+		"schema", schema,
+		"--fk-mode", "smart",
 		// "--single", "output.go",
-		"--out", output,
+		"--out", path,
 		"--use-index-names",
-		"--go-not-first",
+		"--template", "go",
+		// "--go-append",
+		// "--go-not-first",
 		// "--verbose",
 	}
 	for _, v := range viewList {
 		args = append(args, "--include", v)
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		err := os.Mkdir(path, os.ModePerm)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 	}
 
 	cmd := exec.Command("./xo.exe", args...)
